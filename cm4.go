@@ -63,7 +63,7 @@ func newNvec(w int) nvec {
 
 func (n nvec) get(i uint32) byte {
 	// Ugly, but as a single expression so the compiler will inline it :/
-	return byte(n[i/2]>>((i&1)*4)) & 0x0f
+	return (n[i/2] >> ((i & 1) * 4)) & 0x0f
 }
 
 func (n nvec) inc(i uint32) {
