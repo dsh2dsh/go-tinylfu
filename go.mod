@@ -1,4 +1,4 @@
-module github.com/vmihailenco/go-tinylfu
+module github.com/dsh2dsh/go-tinylfu
 
 go 1.21
 
