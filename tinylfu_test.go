@@ -151,3 +151,15 @@ func TestAddAlreadyInCache(t *testing.T) {
 		t.Errorf("c.Get(foo)=%q, want %q", val, "baz")
 	}
 }
+
+func BenchmarkGet(b *testing.B) {
+	c := tinylfu.New(64, 640)
+	key := "some arbitrary key"
+	c.Set(&tinylfu.Item{
+		Key:   key,
+		Value: "some arbitrary value",
+	})
+	for i := 0; i < b.N; i++ {
+		c.Get(key)
+	}
+}
