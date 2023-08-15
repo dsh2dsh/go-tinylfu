@@ -105,7 +105,7 @@ loop:
 			// this is expected
 			break loop
 		default:
-			i := rand.Intn(size)
+			i := rand.Intn(size) //nolint:gosec // weak random is OK for tests
 			key := keyName(i)
 
 			b, ok := mycache.Get(key)
@@ -124,7 +124,7 @@ loop:
 
 func randWord() string {
 	buf := make([]byte, 64)
-	io.ReadFull(cryptorand.Reader, buf)
+	io.ReadFull(cryptorand.Reader, buf) //nolint:errcheck // we don't need err for this test
 	return string(buf)
 }
 
