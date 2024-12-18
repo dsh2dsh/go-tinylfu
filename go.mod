@@ -3,8 +3,8 @@ module github.com/dsh2dsh/go-tinylfu
 go 1.21
 
 require (
-	github.com/cespare/xxhash/v2 v2.2.0
-	github.com/stretchr/testify v1.8.4
+	github.com/cespare/xxhash/v2 v2.3.0
+	github.com/stretchr/testify v1.10.0
 )
 
 require (
