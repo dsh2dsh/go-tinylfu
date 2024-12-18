@@ -9,10 +9,10 @@ type lruCache struct {
 	ll   *list.List
 }
 
-func newLRU(cap int, data map[string]*list.Element) *lruCache {
+func newLRU(capacity int, data map[string]*list.Element) *lruCache {
 	return &lruCache{
 		data: data,
-		cap:  cap,
+		cap:  capacity,
 		ll:   list.New(),
 	}
 }

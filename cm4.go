@@ -42,20 +42,20 @@ func (c *cm4) counterOffset(keyh uint64, level int) uint32 {
 }
 
 func (c *cm4) estimate(keyh uint64) byte {
-	var min byte = 255
-	bmin := func(v, min byte) byte {
+	var minB byte = 255
+	bmin := func(v, minB byte) byte {
 		// bmin gets inlined and the else branch gets optimized away
-		if v < min {
+		if v < minB {
 			return v
 		} else {
-			return min
+			return minB
 		}
 	}
-	min = bmin(c.s[3].get(c.counterOffset(keyh, 3)), min)
-	min = bmin(c.s[2].get(c.counterOffset(keyh, 2)), min)
-	min = bmin(c.s[1].get(c.counterOffset(keyh, 1)), min)
-	min = bmin(c.s[0].get(c.counterOffset(keyh, 0)), min)
-	return min
+	minB = bmin(c.s[3].get(c.counterOffset(keyh, 3)), minB)
+	minB = bmin(c.s[2].get(c.counterOffset(keyh, 2)), minB)
+	minB = bmin(c.s[1].get(c.counterOffset(keyh, 1)), minB)
+	minB = bmin(c.s[0].get(c.counterOffset(keyh, 0)), minB)
+	return minB
 }
 
 func (c *cm4) reset() {

@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dsh2dsh/go-tinylfu"
 	"github.com/stretchr/testify/require"
+
+	"github.com/dsh2dsh/go-tinylfu"
 )
 
 func TestCache(t *testing.T) {
@@ -124,7 +125,7 @@ loop:
 
 func randWord() string {
 	buf := make([]byte, 64)
-	io.ReadFull(cryptorand.Reader, buf) //nolint:errcheck // we don't need err for this test
+	io.ReadFull(cryptorand.Reader, buf)
 	return string(buf)
 }
 
