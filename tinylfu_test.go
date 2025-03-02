@@ -15,34 +15,34 @@ import (
 )
 
 func TestCache(t *testing.T) {
-	cache := tinylfu.New(1e3, 10e3)
+	cache := tinylfu.New[string](1e3, 10e3)
+	require.NotNil(t, cache)
 	keys := []string{"one", "two", "three"}
 
+	var evicted bool
+	onEvict := func() { evicted = true }
+
 	for _, key := range keys {
-		cache.Set(&tinylfu.Item{
-			Key:   key,
-			Value: key,
-		})
+		item := tinylfu.NewItem(key, key).WithOnEvict(onEvict)
+		cache.Set(item)
+		require.False(t, evicted, "key: %q", key)
 
 		got, ok := cache.Get(key)
-		require.True(t, ok)
+		require.True(t, ok, "key: %q, got: %q", key, got)
 		require.Equal(t, key, got)
 	}
 
 	for _, key := range keys {
 		got, ok := cache.Get(key)
-		require.True(t, ok)
+		require.True(t, ok, "key: %q, got: %q", key, got)
 		require.Equal(t, key, got)
 
-		cache.Set(&tinylfu.Item{
-			Key:   key,
-			Value: key + key,
-		})
+		cache.Set(tinylfu.NewItem(key, key+key))
 	}
 
 	for _, key := range keys {
 		got, ok := cache.Get(key)
-		require.True(t, ok)
+		require.True(t, ok, "key: %q, got: %q", key, got)
 		require.Equal(t, key+key, got)
 	}
 
@@ -52,7 +52,7 @@ func TestCache(t *testing.T) {
 
 	for _, key := range keys {
 		_, ok := cache.Get(key)
-		require.False(t, ok)
+		require.False(t, ok, "key: %q", key)
 	}
 }
 
@@ -62,47 +62,36 @@ func TestOOM(t *testing.T) {
 		keys[i] = randWord()
 	}
 
-	cache := tinylfu.New(1e3, 10e3)
+	cache := tinylfu.New[string](1e3, 10e3)
 
 	for i := range int(5e6) {
 		key := keys[i%len(keys)]
-		cache.Set(&tinylfu.Item{
-			Key:   key,
-			Value: key,
-		})
+		cache.Set(tinylfu.NewItem(key, key))
 	}
 }
 
 func TestCorruptionOnExpiry(t *testing.T) {
 	const size = 50000
 
-	strFor := func(i int) string {
-		return fmt.Sprintf("a string %d", i)
-	}
-	keyName := func(i int) string {
-		return fmt.Sprintf("key-%00000d", i)
-	}
+	strFor := func(i int) string { return fmt.Sprintf("a string %d", i) }
+	keyName := func(i int) string { return fmt.Sprintf("key-%05d", i) }
 
-	mycache := tinylfu.New(1000, 10000)
+	mycache := tinylfu.New[[]byte](1000, 10000)
 	// Put a bunch of stuff in the cache with a TTL of 1 second
+	expireAt := time.Now().Add(time.Second)
 	for i := range size {
-		key := keyName(i)
-		mycache.Set(&tinylfu.Item{
-			Key:      key,
-			Value:    []byte(strFor(i)),
-			ExpireAt: time.Now().Add(time.Second),
-		})
+		mycache.Set(tinylfu.NewItemExpire(keyName(i), []byte(strFor(i)), expireAt))
 	}
 
-	// Read stuff for a bit longer than the TTL - that's when the corruption occurs
+	// Read stuff for a bit longer than the TTL - that's when the corruption
+	// occurs.
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
 
-	done := ctx.Done()
 loop:
 	for {
 		select {
-		case <-done:
+		case <-ctx.Done():
 			// this is expected
 			break loop
 		default:
@@ -113,12 +102,7 @@ loop:
 			if !ok {
 				continue loop
 			}
-
-			got := string(b.([]byte))
-			expected := strFor(i)
-			if got != expected {
-				t.Fatalf("expected=%q got=%q key=%q", expected, got, key)
-			}
+			require.Equal(t, strFor(i), string(b), "key=%q", key)
 		}
 	}
 }
@@ -130,36 +114,27 @@ func randWord() string {
 }
 
 func TestAddAlreadyInCache(t *testing.T) {
-	c := tinylfu.New(100, 10000)
+	c := tinylfu.New[string](100, 10000)
 
-	c.Set(&tinylfu.Item{
-		Key:   "foo",
-		Value: "bar",
-	})
+	c.Set(tinylfu.NewItem("foo", "bar"))
 
 	val, _ := c.Get("foo")
-	if val.(string) != "bar" {
+	if val != "bar" {
 		t.Errorf("c.Get(foo)=%q, want %q", val, "bar")
 	}
 
-	c.Set(&tinylfu.Item{
-		Key:   "foo",
-		Value: "baz",
-	})
+	c.Set(tinylfu.NewItem("foo", "baz"))
 
 	val, _ = c.Get("foo")
-	if val.(string) != "baz" {
+	if val != "baz" {
 		t.Errorf("c.Get(foo)=%q, want %q", val, "baz")
 	}
 }
 
 func BenchmarkGet(b *testing.B) {
-	c := tinylfu.New(64, 640)
+	c := tinylfu.New[string](64, 640)
 	key := "some arbitrary key"
-	c.Set(&tinylfu.Item{
-		Key:   key,
-		Value: "some arbitrary value",
-	})
+	c.Set(tinylfu.NewItem(key, "some arbitrary value"))
 	for b.Loop() {
 		c.Get(key)
 	}

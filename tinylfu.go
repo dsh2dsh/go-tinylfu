@@ -12,9 +12,17 @@ import (
 	"github.com/cespare/xxhash/v2"
 )
 
-type Item struct {
+func NewItem[V any](key string, value V) *Item[V] {
+	return &Item[V]{Key: key, Value: value}
+}
+
+func NewItemExpire[V any](key string, value V, expireAt time.Time) *Item[V] {
+	return &Item[V]{Key: key, Value: value, ExpireAt: expireAt}
+}
+
+type Item[V any] struct {
 	Key      string
-	Value    any
+	Value    V
 	ExpireAt time.Time
 	OnEvict  func()
 
@@ -22,11 +30,16 @@ type Item struct {
 	keyh   uint64
 }
 
-func (item Item) expired() bool {
-	return !item.ExpireAt.IsZero() && time.Now().After(item.ExpireAt)
+func (self *Item[V]) WithOnEvict(fn func()) *Item[V] {
+	self.OnEvict = fn
+	return self
 }
 
-type T struct {
+func (self *Item[V]) expired() bool {
+	return !self.ExpireAt.IsZero() && time.Now().After(self.ExpireAt)
+}
+
+type T[V any] struct {
 	w       int
 	samples int
 
@@ -35,29 +48,20 @@ type T struct {
 
 	data map[string]*list.Element
 
-	lru  *lruCache
-	slru *slruCache
+	lru  *lruCache[V]
+	slru *slruCache[V]
 }
 
-func New(size int, samples int) *T {
+func New[V any](size int, samples int) *T[V] {
 	const lruPct = 1
 
-	lruSize := (lruPct * size) / 100
-	if lruSize < 1 {
-		lruSize = 1
-	}
-	slruSize := size - lruSize
-	if slruSize < 1 {
-		slruSize = 1
-	}
-	slru20 := slruSize / 5
-	if slru20 < 1 {
-		slru20 = 1
-	}
+	lruSize := max(1, (lruPct*size)/100)
+	slruSize := max(1, size-lruSize)
+	slru20 := max(1, slruSize/5)
 
 	data := make(map[string]*list.Element, size)
 
-	return &T{
+	return &T[V]{
 		w:       0,
 		samples: samples,
 
@@ -66,18 +70,18 @@ func New(size int, samples int) *T {
 
 		data: data,
 
-		lru:  newLRU(lruSize, data),
-		slru: newSLRU(slru20, slruSize-slru20, data),
+		lru:  newLRU[V](lruSize, data),
+		slru: newSLRU[V](slru20, slruSize-slru20, data),
 	}
 }
 
-func (t *T) onEvict(item *Item) {
+func (t *T[V]) onEvict(item *Item[V]) {
 	if item.OnEvict != nil {
 		item.OnEvict()
 	}
 }
 
-func (t *T) Get(key string) (any, bool) {
+func (t *T[V]) Get(key string) (value V, exists bool) {
 	t.w++
 	if t.w == t.samples {
 		t.countSketch.reset()
@@ -90,32 +94,30 @@ func (t *T) Get(key string) (any, bool) {
 
 	val, ok := t.data[key]
 	if !ok {
-		return nil, false
+		return
 	}
 
-	item := val.Value.(*Item)
+	item := val.Value.(*Item[V])
 	if item.expired() {
 		t.del(val)
-		return nil, false
+		return
 	}
 
 	// Save the value since it is overwritten below.
-	value := item.Value
-
+	value, exists = item.Value, true
 	if item.listid == 0 {
 		t.lru.get(val)
 	} else {
 		t.slru.get(val)
 	}
-
-	return value, true
+	return
 }
 
-func (t *T) Set(newItem *Item) {
+func (t *T[V]) Set(newItem *Item[V]) {
 	if e, ok := t.data[newItem.Key]; ok {
 		// Key is already in our cache.
 		// `Set` will act as a `Get` for list movements
-		item := e.Value.(*Item)
+		item := e.Value.(*Item[V])
 		item.Value = newItem.Value
 		t.countSketch.add(item.keyh)
 
@@ -156,14 +158,14 @@ func (t *T) Set(newItem *Item) {
 	}
 }
 
-func (t *T) Del(key string) {
+func (t *T[V]) Del(key string) {
 	if val, ok := t.data[key]; ok {
 		t.del(val)
 	}
 }
 
-func (t *T) del(val *list.Element) {
-	item := val.Value.(*Item)
+func (t *T[V]) del(val *list.Element) {
+	item := val.Value.(*Item[V])
 	delete(t.data, item.Key)
 
 	if item.listid == 0 {
@@ -177,31 +179,29 @@ func (t *T) del(val *list.Element) {
 
 //------------------------------------------------------------------------------
 
-type SyncT struct {
+type SyncT[V any] struct {
 	mu sync.Mutex
-	t  *T
+	t  *T[V]
 }
 
-func NewSync(size int, samples int) *SyncT {
-	return &SyncT{
-		t: New(size, samples),
-	}
+func NewSync[V any](size int, samples int) *SyncT[V] {
+	return &SyncT[V]{t: New[V](size, samples)}
 }
 
-func (t *SyncT) Get(key string) (any, bool) {
+func (t *SyncT[V]) Get(key string) (V, bool) {
 	t.mu.Lock()
 	val, ok := t.t.Get(key)
 	t.mu.Unlock()
 	return val, ok
 }
 
-func (t *SyncT) Set(item *Item) {
+func (t *SyncT[V]) Set(item *Item[V]) {
 	t.mu.Lock()
 	t.t.Set(item)
 	t.mu.Unlock()
 }
 
-func (t *SyncT) Del(key string) {
+func (t *SyncT[V]) Del(key string) {
 	t.mu.Lock()
 	t.t.Del(key)
 	t.mu.Unlock()

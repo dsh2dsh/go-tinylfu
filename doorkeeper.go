@@ -1,8 +1,6 @@
 package tinylfu
 
-import (
-	"math"
-)
+import "math"
 
 // doorkeeper is a small bloom-filter-based cache admission policy
 type doorkeeper struct {
@@ -13,16 +11,8 @@ type doorkeeper struct {
 
 func newDoorkeeper(capacity int, falsePositiveRate float64) *doorkeeper {
 	bits := float64(capacity) * -math.Log(falsePositiveRate) / (math.Log(2.0) * math.Log(2.0)) // in bits
-	m := nextPowerOfTwo(uint32(bits))
-
-	if m < 1024 {
-		m = 1024
-	}
-
-	k := uint32(0.7 * float64(m) / float64(capacity))
-	if k < 2 {
-		k = 2
-	}
+	m := max(1024, nextPowerOfTwo(uint32(bits)))
+	k := max(2, uint32(0.7*float64(m)/float64(capacity)))
 
 	return &doorkeeper{
 		m:      m,
@@ -39,8 +29,8 @@ func (d *doorkeeper) allow(keyh uint64) bool {
 	return alreadyPresent
 }
 
-// insert inserts the byte array b into the bloom filter.  Returns true if the value
-// was already considered to be in the bloom filter.
+// insert inserts the byte array b into the bloom filter. Returns true if the
+// value was already considered to be in the bloom filter.
 func (d *doorkeeper) insert(h uint64) bool {
 	h1, h2 := uint32(h), uint32(h>>32)
 	var o uint = 1
@@ -63,9 +53,7 @@ func (d *doorkeeper) reset() {
 // Internal routines for the bit vector
 type bitvector []uint64
 
-func newbv(size uint32) bitvector {
-	return make([]uint64, uint(size+63)/64)
-}
+func newbv(size uint32) bitvector { return make([]uint64, uint(size+63)/64) }
 
 // set bit 'bit' in the bitvector d and return previous value
 func (b bitvector) getset(bit uint32) uint {
