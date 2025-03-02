@@ -64,7 +64,7 @@ func TestOOM(t *testing.T) {
 
 	cache := tinylfu.New(1e3, 10e3)
 
-	for i := 0; i < 5e6; i++ {
+	for i := range int(5e6) {
 		key := keys[i%len(keys)]
 		cache.Set(&tinylfu.Item{
 			Key:   key,
@@ -85,7 +85,7 @@ func TestCorruptionOnExpiry(t *testing.T) {
 
 	mycache := tinylfu.New(1000, 10000)
 	// Put a bunch of stuff in the cache with a TTL of 1 second
-	for i := 0; i < size; i++ {
+	for i := range size {
 		key := keyName(i)
 		mycache.Set(&tinylfu.Item{
 			Key:      key,
@@ -95,7 +95,7 @@ func TestCorruptionOnExpiry(t *testing.T) {
 	}
 
 	// Read stuff for a bit longer than the TTL - that's when the corruption occurs
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
 
 	done := ctx.Done()
@@ -160,7 +160,7 @@ func BenchmarkGet(b *testing.B) {
 		Key:   key,
 		Value: "some arbitrary value",
 	})
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		c.Get(key)
 	}
 }

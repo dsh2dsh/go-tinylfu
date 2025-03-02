@@ -14,7 +14,7 @@ import (
 
 type Item struct {
 	Key      string
-	Value    interface{}
+	Value    any
 	ExpireAt time.Time
 	OnEvict  func()
 
@@ -77,7 +77,7 @@ func (t *T) onEvict(item *Item) {
 	}
 }
 
-func (t *T) Get(key string) (interface{}, bool) {
+func (t *T) Get(key string) (any, bool) {
 	t.w++
 	if t.w == t.samples {
 		t.countSketch.reset()
@@ -188,7 +188,7 @@ func NewSync(size int, samples int) *SyncT {
 	}
 }
 
-func (t *SyncT) Get(key string) (interface{}, bool) {
+func (t *SyncT) Get(key string) (any, bool) {
 	t.mu.Lock()
 	val, ok := t.t.Get(key)
 	t.mu.Unlock()
