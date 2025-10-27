@@ -10,6 +10,11 @@ formatters:
     - "goimports"
 
   settings:
+    gofumpt:
+      # Choose whether to use the extra rules.
+      # Default: false
+      extra-rules: true
+
     goimports:
       # A list of prefixes, which, if set, checks import paths
       # with the given prefixes are grouped after 3rd-party packages.
@@ -22,6 +27,7 @@ linters:
     - "asciicheck"
     - "bidichk"
     - "copyloopvar"
+    - "embeddedstructfieldcheck"
     - "errorlint"
     - "gocritic"
     - "makezero"
@@ -51,6 +57,10 @@ linters:
         - "(io.ReadCloser).Close"
         - "(net.Conn).Close"
         - "(*os.File).Close"
+
+      # Display function signature instead of selector.
+      # Default: false
+      verbose: true
 
     nolintlint:
       # Enable to require an explanation of nonzero length after each nolint

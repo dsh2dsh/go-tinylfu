@@ -52,7 +52,7 @@ type T[V any] struct {
 	slru *slruCache[V]
 }
 
-func New[V any](size int, samples int) *T[V] {
+func New[V any](size, samples int) *T[V] {
 	const lruPct = 1
 
 	lruSize := max(1, (lruPct*size)/100)
@@ -94,13 +94,13 @@ func (t *T[V]) Get(key string) (value V, exists bool) {
 
 	val, ok := t.data[key]
 	if !ok {
-		return
+		return value, exists
 	}
 
 	item := val.Value.(*Item[V])
 	if item.expired() {
 		t.del(val)
-		return
+		return value, exists
 	}
 
 	// Save the value since it is overwritten below.
@@ -110,7 +110,7 @@ func (t *T[V]) Get(key string) (value V, exists bool) {
 	} else {
 		t.slru.get(val)
 	}
-	return
+	return value, exists
 }
 
 func (t *T[V]) Set(newItem *Item[V]) {
@@ -184,7 +184,7 @@ type SyncT[V any] struct {
 	t  *T[V]
 }
 
-func NewSync[V any](size int, samples int) *SyncT[V] {
+func NewSync[V any](size, samples int) *SyncT[V] {
 	return &SyncT[V]{t: New[V](size, samples)}
 }
 
